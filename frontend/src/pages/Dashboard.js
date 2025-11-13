@@ -1,21 +1,8 @@
 import React, { useState, useEffect } from "react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  Legend,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
+import {PieChart, Pie, Cell, Tooltip, Legend, LineChart, Line, XAxis, YAxis, ResponsiveContainer, CartesianGrid,} from "recharts";
 
 const COLORS = ["#555879", "#98A1BC", "#DED3C4", "#F4EBD3"];
 
-// Normalize severity (case-insensitive) into one of High/Medium/Low/Critical
 function normalizeSeverity(s) {
   if (!s && s !== 0) return "Low";
   const sev = String(s).trim().toLowerCase();
@@ -26,14 +13,12 @@ function normalizeSeverity(s) {
   return "Low";
 }
 
-// Count severities in an array of findings
 function countSeverities(findings = []) {
   const counts = { Critical: 0, High: 0, Medium: 0, Low: 0 };
   findings.forEach((f) => {
     const n = normalizeSeverity(f.severity || f.risk || f.level);
     if (counts[n] !== undefined) counts[n]++;
   });
-  // Keep order important for palette: Critical, High, Medium, Low
   return [
     { name: "Critical", value: counts.Critical },
     { name: "High", value: counts.High },
@@ -42,13 +27,11 @@ function countSeverities(findings = []) {
   ];
 }
 
-// Format date label like "29 Oct"
 function dayLabelFromISO(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 }
 
-// Build last 7 days array of labels (ordered oldest -> newest)
 function last7DayLabels() {
   const arr = [];
   for (let i = 6; i >= 0; i--) {
@@ -70,7 +53,6 @@ export default function Dashboard() {
         const res = await fetch("http://localhost:8000/history");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        // Expect data.history to be an array. If backend returns newest first, keep as-is.
         setScanHistory(Array.isArray(data.history) ? data.history : []);
       } catch (err) {
         console.error("Error fetching scan history:", err);
@@ -98,10 +80,8 @@ export default function Dashboard() {
     );
   }
 
-  // Accept either scan.scan_type or scan.type
   const getType = (scan) => scan.scan_type || scan.type || "external";
 
-  // Flatten all findings per scan type
   const codeScanFindings = scanHistory
     .filter((s) => getType(s) === "code")
     .flatMap((s) => s.findings || []);
@@ -112,7 +92,6 @@ export default function Dashboard() {
   const codeScanData = countSeverities(codeScanFindings);
   const externalScanData = countSeverities(externalScanFindings);
 
-  // Recent scans: take first 5 items assuming API returns newest-first.
   const recentScans = (scanHistory.slice(0, 5) || []).map((scan, i) => {
     const findings = scan.findings || [];
     const counts = countSeverities(findings).reduce(
@@ -130,14 +109,12 @@ export default function Dashboard() {
     };
   });
 
-  // Trend: last 7 days (oldest -> newest). sum of findings per day, separated by type
   const labels = last7DayLabels();
   const trendMap = {};
   labels.forEach((lbl) => {
     trendMap[lbl] = { date: lbl, code: 0, external: 0 };
   });
 
-  // For each scan, map into its day bucket and add findings count
   scanHistory.forEach((scan) => {
     const ts = scan.timestamp || scan.time || scan.created_at || scan.date;
     if (!ts) return;
@@ -148,24 +125,20 @@ export default function Dashboard() {
     else trendMap[lbl].external += cnt;
   });
 
-  const trendData = Object.values(trendMap); // already oldest->newest
+  const trendData = Object.values(trendMap); 
 
-  // Stats
   const totalScans = scanHistory.length;
   const lastScan = scanHistory[0];
   const lastScanDate = lastScan ? new Date(lastScan.timestamp || lastScan.time || lastScan.date || lastScan.created_at) : null;
   const timeSinceLastScan = lastScanDate ? Math.floor((Date.now() - lastScanDate.getTime()) / (1000 * 60)) : null;
   const averageScore = totalScans ? Math.round((scanHistory.reduce((s, x) => s + (x.score || 0), 0) / totalScans)) : 0;
-  // Average risk heuristic (you can tweak thresholds)
   const avgRisk = averageScore >= 75 ? "Critical" : averageScore >= 50 ? "High" : averageScore >= 25 ? "Medium" : "Low";
 
   return (
     <div className="p-10 bg-[#234C6A] min-h-screen text-[#D2C1B6]">
       <h2 className="text-3xl font-bold mb-8 text-center">Security Dashboard</h2>
 
-      {/* 2 Pie Charts Row */}
       <div className="flex flex-col lg:flex-row justify-around items-center gap-10 mb-12">
-        {/* Code Scan Pie */}
         <div className="bg-[#1B3C53] p-6 rounded-2xl shadow-lg border border-[#456882]">
           <h3 className="text-xl mb-4 font-semibold text-[#F4EBD3] text-center">
             Code Scan Severity
@@ -181,7 +154,6 @@ export default function Dashboard() {
           </PieChart>
         </div>
 
-        {/* External Scan Pie */}
         <div className="bg-[#1B3C53] p-6 rounded-2xl shadow-lg border border-[#456882]">
           <h3 className="text-xl mb-4 font-semibold text-[#F4EBD3] text-center">
             External Scan Severity
@@ -198,7 +170,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Card */}
       <div className="bg-[#1B3C53] p-6 rounded-2xl shadow-lg border border-[#456882] w-80 text-center mx-auto mb-12">
         <p className="text-lg mb-3">
           <span className="font-semibold text-[#F4EBD3]">Total Scans:</span> {totalScans}
@@ -212,7 +183,6 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Line Chart - Trend */}
       <div className="bg-[#1B3C53] p-6 rounded-2xl shadow-lg border border-[#456882] mb-12">
         <h3 className="text-xl mb-4 font-semibold text-[#F4EBD3] text-center">7-Day Scan Findings Trend</h3>
         <div className="h-72">
@@ -230,7 +200,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Recent Scans Table */}
       <div className="bg-[#1B3C53] p-6 rounded-2xl shadow-lg border border-[#456882]">
         <h3 className="text-xl mb-4 font-semibold text-[#F4EBD3] text-center">Recent Scans</h3>
         <table className="w-full text-left border-collapse text-[#D2C1B6]">

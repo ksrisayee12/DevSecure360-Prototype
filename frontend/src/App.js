@@ -11,7 +11,6 @@ import logo from "./assets/logo (2).png";
 function App() {
   return (
     <Router>
-      {/* Navbar */}
       <nav className="flex justify-between items-center px-10 py-4 bg-[#031323] shadow-md border-b-2 border-[#456882] sticky top-0 z-50">
         <NavLink to="/" className="flex items-center space-x-3">
           <img
@@ -48,7 +47,6 @@ function App() {
         </div>
       </nav>
 
-      {/* Main layout background */}
       <div className="bg-[#234C6A] min-h-screen text-[#D2C1B6]">
         <Routes>
           <Route path="/" element={<Dashboard />} />
