@@ -1,4 +1,3 @@
-# app/scanner/code_scanner.py
 import os
 import json
 import subprocess
@@ -7,9 +6,6 @@ import tempfile
 from typing import List, Dict
 import locale
 
-# -----------------------
-# Locale & Env setup
-# -----------------------
 try:
     locale.setlocale(locale.LC_ALL, 'C.UTF-8')
 except locale.Error:
@@ -25,11 +21,7 @@ os.environ.update({
     "LANG": "C.UTF-8",
 })
 
-# -----------------------
-# BANDIT SCAN
-# -----------------------
 def run_bandit_scan(target_path: str) -> Dict:
-    """Run Bandit recursively and return parsed JSON results."""
     if not shutil.which("bandit"):
         return {"errors": "Bandit not installed or not found in PATH"}
     cmd = ["bandit", "-r", target_path, "-f", "json"]
@@ -45,12 +37,7 @@ def run_bandit_scan(target_path: str) -> Dict:
     except Exception as e:
         return {"errors": str(e)}
 
-
-# -----------------------
-# SEMGREP SCAN
-# -----------------------
 def run_semgrep_scan(target_dir: str) -> list:
-    """Run Semgrep scan robustly and normalize its findings."""
     env = os.environ.copy()
     env.update({
         "PYTHONUTF8": "1",
@@ -73,7 +60,6 @@ def run_semgrep_scan(target_dir: str) -> list:
                 timeout=600
             )
 
-            # Semgrep: 0 = no findings, 1 = findings
             if proc.returncode not in (0, 1):
                 print("[semgrep] non-OK return:", proc.returncode)
                 print("[semgrep] stderr snippet:", (proc.stderr or "")[:300])
@@ -86,11 +72,9 @@ def run_semgrep_scan(target_dir: str) -> list:
                 print("[semgrep] no output at all")
                 return []
 
-            # Parse JSON (handles valid output)
             try:
                 data = json.loads(raw)
             except json.JSONDecodeError:
-                # fallback: extract JSON substring
                 start, end = raw.find("{"), raw.rfind("}")
                 if start != -1 and end != -1 and end > start:
                     snippet = raw[start:end+1]
@@ -102,7 +86,6 @@ def run_semgrep_scan(target_dir: str) -> list:
                     print(f"[semgrep] Invalid output saved to {tf.name}")
                     return []
 
-            # ✅ Normalize Semgrep results
             findings = []
             for item in data.get("results", []):
                 file_path = item.get("path") or "unknown"
@@ -137,7 +120,6 @@ def run_semgrep_scan(target_dir: str) -> list:
             print("[semgrep] exception:", e)
             return []
 
-    # --- try rule sets ---
     attempts = [
         ["semgrep", "scan", "--config", "p/default", "--config", "p/ci", "--json", target_dir],
         ["semgrep", "scan", "--config", "p/security-audit", "--config", "p/ci", "--json", target_dir],
@@ -151,7 +133,6 @@ def run_semgrep_scan(target_dir: str) -> list:
         if res == []:
             return []
 
-    # fallback to local rules
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     local_rules = os.path.join(root, "local_semgrep_rules.yml")
     if os.path.exists(local_rules):
@@ -162,10 +143,6 @@ def run_semgrep_scan(target_dir: str) -> list:
     print("[semgrep] all attempts exhausted, returning []")
     return []
 
-
-# -----------------------
-# COMBINE SCAN RESULTS
-# -----------------------
 def run_code_scan(target_dir: str) -> list:
     results = []
 
@@ -190,15 +167,9 @@ def run_code_scan(target_dir: str) -> list:
     print(f">>> Total findings: {len(results)}")
     return results
 
-
-# -----------------------
-# STANDARDIZATION FOR FRONTEND
-# -----------------------
 def standardize_code_results(bandit_json: dict, semgrep_json: list | dict) -> list[dict]:
-    """Normalize Bandit + Semgrep output to a unified list for the frontend."""
     results = []
 
-    # Bandit findings
     if isinstance(bandit_json, dict) and "results" in bandit_json:
         for r in bandit_json["results"]:
             results.append({
@@ -216,7 +187,6 @@ def standardize_code_results(bandit_json: dict, semgrep_json: list | dict) -> li
             "severity": "Low",
         })
 
-    # Semgrep findings
     if isinstance(semgrep_json, list):
         for r in semgrep_json:
             results.append({
@@ -244,10 +214,6 @@ def standardize_code_results(bandit_json: dict, semgrep_json: list | dict) -> li
     cleaned = [r for r in results if r.get("file") not in (None, "null", "")]
     return cleaned
 
-
-# -----------------------
-# SEVERITY MAPPERS
-# -----------------------
 def map_bandit_severity(level: str) -> str:
     if not level:
         return "Low"

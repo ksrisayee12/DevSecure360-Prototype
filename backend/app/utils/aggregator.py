@@ -3,10 +3,7 @@ from datetime import datetime
 WEIGHTS = {"High": 3, "Medium": 2, "Low": 1}
 
 def compute_score(findings: list) -> dict:
-    """
-    findings: list of dicts with 'severity' keys
-    returns: {score:int, counts: {...}}
-    """
+
     counts = {"High":0, "Medium":0, "Low":0}
     total_weight = 0
     for f in findings:

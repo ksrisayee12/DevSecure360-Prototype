@@ -1,4 +1,3 @@
-# app/database/history_db.py
 import os
 import json
 from datetime import datetime
